@@ -54,6 +54,8 @@ Or double‑click **run_daily_ops.bat** (after `doppler setup` in that folder).
 
 ## Scheduling
 
+The job uses `TIMEZONE` to determine "today", so schedule it for 7:00 PM local time.
+
 ### Windows (Task Scheduler)
 
 A task **Daily Ops** is set to run at **7:00 PM local time** every day. It runs `run_daily_ops.bat`, which runs the job with Doppler. Ensure Doppler CLI is installed and you’ve run `doppler login` and `doppler setup` in `daily_ops` so the task can inject secrets.
@@ -62,10 +64,10 @@ To change the time or view the task: **Task Scheduler** → Task Scheduler Libra
 
 ### Linux / cron
 
-Example: run daily at 8:05 PM Arizona time:
+Example: run daily at 7:00 PM Arizona time:
 
 ```bash
-5 20 * * * TZ=America/Phoenix cd /path/to/daily_ops && doppler run -- python -m src.main >> /var/log/daily_ops.log 2>&1
+0 19 * * * TZ=America/Phoenix cd /path/to/daily_ops && doppler run -- python3 -m src.main >> /var/log/daily_ops.log 2>&1
 ```
 
 For unattended cron, use a [Doppler service token](https://docs.doppler.com/docs/service-tokens) and set `DOPPLER_TOKEN` in the environment.

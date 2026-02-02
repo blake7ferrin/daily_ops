@@ -26,6 +26,26 @@ def _status_contains(status: str, markers: tuple[str, ...]) -> bool:
     return any(marker in status for marker in markers)
 
 
+def _job_schedule_date(job: dict, tz) -> str | None:
+    schedule = job.get("schedule") or {}
+    if not isinstance(schedule, dict):
+        return None
+    return _parse_date_only(
+        schedule.get("scheduled_start") or schedule.get("scheduled_end"),
+        tz,
+    )
+
+
+def _job_walked_on_day(job: dict, day: str, tz) -> bool:
+    timestamps = job.get("work_timestamps") or {}
+    if not isinstance(timestamps, dict):
+        return False
+    for key in ("started_at", "on_my_way_at", "completed_at"):
+        if _parse_date_only(timestamps.get(key), tz) == day:
+            return True
+    return False
+
+
 def _request_with_retry(
     session: requests.Session,
     method: str,
@@ -86,39 +106,51 @@ def _session_with_auth(api_key: str, auth_header: str) -> requests.Session:
     return session
 
 
-def fetch_jobs_created(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
-    """Jobs created on day (YYYY-MM-DD in tz)."""
+def fetch_jobs_walked(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
+    """Jobs walked on day (on_my_way/started/completed in tz)."""
     session = _session_with_auth(api_key, auth_header)
     all_jobs = _get_paginated(session, base_url, "/jobs", "jobs")
     result = []
     for j in all_jobs:
-        created_date = _parse_date_only(j.get("created_at"), tz)
-        if created_date == day:
+        if _job_walked_on_day(j, day, tz):
             result.append(j)
     return result
 
 
-def fetch_won_estimates(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
-    """Estimates marked sold on day (won/created/scheduled date or updated_at in tz)."""
+def fetch_jobs_booked(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
+    """Jobs booked on day (scheduled_start in tz)."""
+    session = _session_with_auth(api_key, auth_header)
+    all_jobs = _get_paginated(session, base_url, "/jobs", "jobs")
+    result = []
+    for j in all_jobs:
+        scheduled_date = _job_schedule_date(j, tz)
+        if scheduled_date == day:
+            result.append(j)
+    return result
+
+
+def fetch_estimates_converted(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
+    """Estimates converted to jobs on day (converted/updated date in tz)."""
     session = _session_with_auth(api_key, auth_header)
     all_estimates = _get_paginated(session, base_url, "/estimates", "estimates")
     result = []
-    sold_markers = ("won", "created job", "converted", "scheduled")
+    sold_markers = ("created job", "converted")
     for e in all_estimates:
         status = (e.get("status") or e.get("work_status") or "").lower()
         if not _status_contains(status, sold_markers):
             continue
-        # Use won_at, converted_at, or updated_at for "on day"
+        # Use converted_at or updated_at for "on day"
         date_str = _parse_date_only(
-            e.get("won_at") or e.get("converted_at") or e.get("updated_at"), tz
+            e.get("converted_at") or e.get("updated_at") or e.get("created_at"),
+            tz,
         )
         if date_str == day:
             result.append(e)
     return result
 
 
-def fetch_invoices_created(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
-    """Invoices dated on day (invoice_date). Falls back to jobs with invoices if no /invoices endpoint."""
+def fetch_invoices_sent(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
+    """Invoices sent on day (sent_at). Falls back to jobs with invoices if no /invoices endpoint."""
     session = _session_with_auth(api_key, auth_header)
     try:
         all_invoices = _get_paginated(session, base_url, "/invoices", "invoices")
@@ -128,26 +160,26 @@ def fetch_invoices_created(base_url: str, api_key: str, day: str, tz, auth_heade
         result = []
         for j in all_jobs:
             for inv in j.get("invoices", []) or []:
-                invoice_date = _parse_date_only(
-                    inv.get("invoice_date")
+                sent_date = _parse_date_only(
+                    inv.get("sent_at")
+                    or inv.get("invoice_date")
                     or inv.get("created_at")
-                    or inv.get("sent_at")
                     or inv.get("service_date"),
                     tz,
                 )
-                if invoice_date == day:
+                if sent_date == day:
                     result.append(inv)
         return result
     result = []
     for i in all_invoices:
-        invoice_date = _parse_date_only(
-            i.get("invoice_date")
+        sent_date = _parse_date_only(
+            i.get("sent_at")
+            or i.get("invoice_date")
             or i.get("created_at")
-            or i.get("sent_at")
             or i.get("service_date"),
             tz,
         )
-        if invoice_date == day:
+        if sent_date == day:
             result.append(i)
     return result
 

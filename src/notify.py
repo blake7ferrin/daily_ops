@@ -29,7 +29,7 @@ def format_message(day: str, m: dict, business_name: str | None = None) -> str:
     lines.extend(
         [
             reviews_line,
-            f"Jobs walked - {m['jobs_run_count']}",
+            f"Jobs walked - {m['jobs_walked_count']}",
             f"Jobs Sold - {m['jobs_sold_count']}",
             f"Invoiced - {m['jobs_invoiced_count']}",
             f"Collected - {_fmt_money(m['collected_cents'])}",

@@ -5,10 +5,11 @@ from datetime import date, datetime, timedelta
 
 from .config import load_config
 from .hcp_client import (
-    fetch_invoices_created,
-    fetch_jobs_created,
+    fetch_estimates_converted,
+    fetch_invoices_sent,
+    fetch_jobs_booked,
+    fetch_jobs_walked,
     fetch_payments_received,
-    fetch_won_estimates,
 )
 from .metrics import compute_metrics
 from .notify import format_message, send_telegram
@@ -44,24 +45,29 @@ def main() -> None:
     hcp_auth = cfg.get("hcp_auth_header") or "bearer"
 
     try:
-        jobs_created = fetch_jobs_created(base_url, api_key, day, tz, hcp_auth)
+        jobs_walked = fetch_jobs_walked(base_url, api_key, day, tz, hcp_auth)
     except Exception as e:
-        print(f"HCP jobs created: {e}", file=sys.stderr)
+        print(f"HCP jobs walked: {e}", file=sys.stderr)
         sys.exit(1)
     try:
-        won_estimates = fetch_won_estimates(base_url, api_key, day, tz, hcp_auth)
+        estimates_converted = fetch_estimates_converted(base_url, api_key, day, tz, hcp_auth)
     except Exception as e:
-        print(f"HCP won estimates: {e}", file=sys.stderr)
+        print(f"HCP converted estimates: {e}", file=sys.stderr)
         sys.exit(1)
     try:
-        invoices_created = fetch_invoices_created(base_url, api_key, day, tz, hcp_auth)
+        invoices_sent = fetch_invoices_sent(base_url, api_key, day, tz, hcp_auth)
     except Exception as e:
-        print(f"HCP invoices: {e}", file=sys.stderr)
+        print(f"HCP invoices sent: {e}", file=sys.stderr)
         sys.exit(1)
     try:
         payments_received = fetch_payments_received(base_url, api_key, day, tz, hcp_auth)
     except Exception as e:
         print(f"HCP payments: {e}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        jobs_booked = fetch_jobs_booked(base_url, api_key, day, tz, hcp_auth)
+    except Exception as e:
+        print(f"HCP jobs booked: {e}", file=sys.stderr)
         sys.exit(1)
 
     plaid_txns = None
@@ -96,10 +102,11 @@ def main() -> None:
         gbp_yesterday_total = prev["gbp_total_reviews"] if prev else None
 
     m = compute_metrics(
-        jobs_created,
-        won_estimates,
-        invoices_created,
+        jobs_walked,
+        estimates_converted,
+        invoices_sent,
         payments_received,
+        jobs_booked,
         plaid_txns,
         cfg.get("plaid_amex_account_id"),
         gbp_total_reviews,
