@@ -107,7 +107,7 @@ def main() -> None:
         gbp_avg_rating,
     )
 
-    text = format_message(day, m)
+    text = format_message(day, m, cfg.get("business_name"))
     try:
         send_telegram(cfg["telegram_bot_token"], cfg["telegram_chat_id"], text)
     except Exception as e:
