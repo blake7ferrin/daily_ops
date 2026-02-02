@@ -1,7 +1,7 @@
 """Daily Ops: fetch HCP, Plaid, and optional Google Reviews (Places API) and send Telegram summary."""
 import argparse
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from .config import load_config
 from .hcp_client import (
@@ -32,7 +32,8 @@ def main() -> None:
             sys.exit(1)
         day = args.date
     else:
-        day_date = date.today()
+        # Use configured timezone for "today" to avoid empty summaries on UTC hosts.
+        day_date = datetime.now(tz=tz).date()
         day = day_date.strftime("%Y-%m-%d")
 
     yesterday_date = day_date - timedelta(days=1)
