@@ -5,8 +5,8 @@ from datetime import date, datetime, timedelta
 
 from .config import load_config
 from .hcp_client import (
-    fetch_completed_jobs,
     fetch_invoices_created,
+    fetch_jobs_created,
     fetch_payments_received,
     fetch_won_estimates,
 )
@@ -44,9 +44,9 @@ def main() -> None:
     hcp_auth = cfg.get("hcp_auth_header") or "bearer"
 
     try:
-        completed_jobs = fetch_completed_jobs(base_url, api_key, day, tz, hcp_auth)
+        jobs_created = fetch_jobs_created(base_url, api_key, day, tz, hcp_auth)
     except Exception as e:
-        print(f"HCP completed jobs: {e}", file=sys.stderr)
+        print(f"HCP jobs created: {e}", file=sys.stderr)
         sys.exit(1)
     try:
         won_estimates = fetch_won_estimates(base_url, api_key, day, tz, hcp_auth)
@@ -96,7 +96,7 @@ def main() -> None:
         gbp_yesterday_total = prev["gbp_total_reviews"] if prev else None
 
     m = compute_metrics(
-        completed_jobs,
+        jobs_created,
         won_estimates,
         invoices_created,
         payments_received,

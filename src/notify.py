@@ -12,13 +12,13 @@ def format_message(day: str, m: dict) -> str:
     """
     Build plain text message:
     Daily Ops Summary (YYYY-MM-DD)
-    Jobs run, Jobs sold, Jobs invoiced, Collected, AMEX spend, Net
+    Jobs created, Jobs sold, Jobs invoiced, Collected, AMEX spend, Net
     Google Reviews: Total: X (Avg: Y.Y), New since yesterday: +N
     """
     lines = [
         f"Daily Ops Summary ({day})",
         "",
-        f"Jobs run: {m['jobs_run_count']}",
+        f"Jobs created: {m['jobs_run_count']}",
         f"Jobs sold: {m['jobs_sold_count']}",
         f"Jobs invoiced: {m['jobs_invoiced_count']}",
         f"Collected: {_fmt_money(m['collected_cents'])}",

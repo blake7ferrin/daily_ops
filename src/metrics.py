@@ -13,7 +13,7 @@ def _payment_amount_cents(p: dict) -> int:
 
 
 def compute_metrics(
-    completed_jobs: list,
+    created_jobs: list,
     won_estimates: list,
     invoices_created: list,
     payments_received: list,
@@ -25,13 +25,13 @@ def compute_metrics(
 ) -> dict[str, Any]:
     """
     Return a single dict with:
-    jobs_run_count, jobs_sold_count, jobs_invoiced_count,
+    jobs_run_count (jobs created on day), jobs_sold_count, jobs_invoiced_count,
     collected_cents, amex_spend_cents, net_cents,
     gbp_total_reviews, gbp_new_reviews, gbp_avg_rating.
     amex_spend_cents and net_cents are None when Plaid is not used.
     gbp_* are None when Google Reviews (GBP) is not used.
     """
-    jobs_run_count = len(completed_jobs)
+    jobs_run_count = len(created_jobs)
     jobs_sold_count = len(won_estimates)
     jobs_invoiced_count = len(invoices_created)
 

@@ -22,6 +22,10 @@ def _parse_date_only(iso_str: str | None, tz) -> str | None:
         return None
 
 
+def _status_contains(status: str, markers: tuple[str, ...]) -> bool:
+    return any(marker in status for marker in markers)
+
+
 def _request_with_retry(
     session: requests.Session,
     method: str,
@@ -82,29 +86,27 @@ def _session_with_auth(api_key: str, auth_header: str) -> requests.Session:
     return session
 
 
-def fetch_completed_jobs(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
-    """Jobs with work_status completed and completed_at date = day (YYYY-MM-DD in tz)."""
+def fetch_jobs_created(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
+    """Jobs created on day (YYYY-MM-DD in tz)."""
     session = _session_with_auth(api_key, auth_header)
     all_jobs = _get_paginated(session, base_url, "/jobs", "jobs")
     result = []
     for j in all_jobs:
-        status = (j.get("work_status") or j.get("status") or "").lower()
-        if "complete" not in status:
-            continue
-        completed_date = _parse_date_only(j.get("completed_at"), tz)
-        if completed_date == day:
+        created_date = _parse_date_only(j.get("created_at"), tz)
+        if created_date == day:
             result.append(j)
     return result
 
 
 def fetch_won_estimates(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
-    """Estimates marked Won on day (won date or updated_at in tz)."""
+    """Estimates marked sold on day (won/created/scheduled date or updated_at in tz)."""
     session = _session_with_auth(api_key, auth_header)
     all_estimates = _get_paginated(session, base_url, "/estimates", "estimates")
     result = []
+    sold_markers = ("won", "created job", "converted", "scheduled")
     for e in all_estimates:
         status = (e.get("status") or e.get("work_status") or "").lower()
-        if "won" not in status:
+        if not _status_contains(status, sold_markers):
             continue
         # Use won_at, converted_at, or updated_at for "on day"
         date_str = _parse_date_only(
@@ -116,7 +118,7 @@ def fetch_won_estimates(base_url: str, api_key: str, day: str, tz, auth_header: 
 
 
 def fetch_invoices_created(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
-    """Invoices created on day. Falls back to jobs with invoices if no /invoices endpoint."""
+    """Invoices dated on day (invoice_date). Falls back to jobs with invoices if no /invoices endpoint."""
     session = _session_with_auth(api_key, auth_header)
     try:
         all_invoices = _get_paginated(session, base_url, "/invoices", "invoices")
@@ -126,38 +128,90 @@ def fetch_invoices_created(base_url: str, api_key: str, day: str, tz, auth_heade
         result = []
         for j in all_jobs:
             for inv in j.get("invoices", []) or []:
-                created = _parse_date_only(inv.get("created_at"), tz)
-                if created == day:
+                invoice_date = _parse_date_only(
+                    inv.get("invoice_date")
+                    or inv.get("created_at")
+                    or inv.get("sent_at")
+                    or inv.get("service_date"),
+                    tz,
+                )
+                if invoice_date == day:
                     result.append(inv)
         return result
-    result = [i for i in all_invoices if _parse_date_only(i.get("created_at"), tz) == day]
+    result = []
+    for i in all_invoices:
+        invoice_date = _parse_date_only(
+            i.get("invoice_date")
+            or i.get("created_at")
+            or i.get("sent_at")
+            or i.get("service_date"),
+            tz,
+        )
+        if invoice_date == day:
+            result.append(i)
     return result
 
 
 def fetch_payments_received(base_url: str, api_key: str, day: str, tz, auth_header: str = "bearer") -> list:
     """Payments received on day (payment date). Exclude refunds/voids."""
     session = _session_with_auth(api_key, auth_header)
+
+    def _is_refund(payment: dict) -> bool:
+        kind = (payment.get("type") or payment.get("status") or "").lower()
+        return "refund" in kind or "void" in kind
+
+    def _payment_date(payment: dict) -> str | None:
+        return _parse_date_only(
+            payment.get("paid_at")
+            or payment.get("date")
+            or payment.get("created_at")
+            or payment.get("payment_date"),
+            tz,
+        )
+
+    def _collect_nested_payments(objects: list, key: str) -> list:
+        result: list = []
+        for obj in objects:
+            for payment in obj.get(key, []) or []:
+                if _is_refund(payment):
+                    continue
+                pay_date = _payment_date(payment)
+                if pay_date == day:
+                    result.append(payment)
+        return result
+
     try:
         all_payments = _get_paginated(session, base_url, "/payments", "payments")
     except Exception:
-        # Try under jobs: payments on jobs
-        all_jobs = _get_paginated(session, base_url, "/jobs", "jobs")
-        result = []
-        for j in all_jobs:
-            for p in j.get("payments", []) or []:
-                pay_date = _parse_date_only(p.get("date") or p.get("created_at") or p.get("payment_date"), tz)
-                if pay_date == day:
-                    kind = (p.get("type") or p.get("status") or "").lower()
-                    if "refund" in kind or "void" in kind:
-                        continue
-                    result.append(p)
-        return result
+        # Try under jobs and invoices: payments nested on objects
+        payments: list = []
+        try:
+            all_jobs = _get_paginated(session, base_url, "/jobs", "jobs")
+            payments.extend(_collect_nested_payments(all_jobs, "payments"))
+        except Exception:
+            pass
+        try:
+            all_invoices = _get_paginated(session, base_url, "/invoices", "invoices")
+            payments.extend(_collect_nested_payments(all_invoices, "payments"))
+        except Exception:
+            pass
+        if not payments:
+            return []
+        seen_ids: set = set()
+        unique: list = []
+        for payment in payments:
+            payment_id = payment.get("id")
+            if payment_id and payment_id in seen_ids:
+                continue
+            if payment_id:
+                seen_ids.add(payment_id)
+            unique.append(payment)
+        return unique
     result = []
     for p in all_payments:
-        kind = (p.get("type") or p.get("status") or "").lower()
-        if "refund" in kind or "void" in kind:
+        if _is_refund(p):
             continue
-        pay_date = _parse_date_only(p.get("date") or p.get("created_at") or p.get("payment_date"), tz)
+        pay_date = _payment_date(p)
         if pay_date == day:
             result.append(p)
     return result
