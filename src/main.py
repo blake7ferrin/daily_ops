@@ -89,11 +89,20 @@ def main() -> None:
     gbp_total_reviews = None
     gbp_avg_rating = None
     gbp_yesterday_total = None
-    if cfg.get("places_api_key") and cfg.get("business_name"):
+    places_enabled = cfg.get("places_api_key") and (
+        cfg.get("places_place_id")
+        or cfg.get("places_cid")
+        or cfg.get("places_maps_url")
+        or cfg.get("business_name")
+    )
+    if places_enabled:
         try:
             gbp_total_reviews, gbp_avg_rating = places_fetch_reviews_summary(
                 cfg["places_api_key"],
-                cfg["business_name"],
+                cfg.get("business_name"),
+                place_id=cfg.get("places_place_id"),
+                cid=cfg.get("places_cid"),
+                maps_url=cfg.get("places_maps_url"),
             )
         except Exception as e:
             print(f"Google Places: {e}", file=sys.stderr)

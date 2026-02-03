@@ -27,9 +27,14 @@ Daily job that pulls Housecall Pro and optionally Google reviews (via Places API
 
 | Variable | Description |
 | ---------- | ------------- |
-| **Google reviews (Places API)** | Omit either to skip; Google Reviews will show N/A |
+| **Google reviews (Places API)** | Omit all to skip; Google Reviews will show N/A |
 | `PLACES_API_KEY` | Google Maps Platform API key (Places API enabled) |
-| `BUSINESS_NAME` | Your business name as it appears on Google (used to find place and get rating/review count) |
+| `PLACES_PLACE_ID` | Optional: Place ID (ChIJ...) to pin the listing |
+| `PLACES_CID` | Optional: Maps CID (from `https://maps.google.com/?cid=...`) |
+| `PLACES_MAPS_URL` | Optional: Google Maps share URL (we'll extract cid/ftid) |
+| `BUSINESS_NAME` | Fallback: business name text search (least reliable) |
+
+Places lookup precedence is `PLACES_PLACE_ID` → `PLACES_CID` → `PLACES_MAPS_URL` → `BUSINESS_NAME`.
 | **Plaid (AMEX spend)** | Omit all to skip; AMEX spend and Net will show N/A |
 | `PLAID_CLIENT_ID` | Plaid client ID |
 | `PLAID_SECRET` | Plaid secret |
