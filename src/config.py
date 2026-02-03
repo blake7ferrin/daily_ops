@@ -43,5 +43,7 @@ def load_config() -> dict:
         "places_place_id": (os.environ.get("PLACES_PLACE_ID") or "").strip() or None,
         "places_cid": (os.environ.get("PLACES_CID") or "").strip() or None,
         "places_maps_url": (os.environ.get("PLACES_MAPS_URL") or "").strip() or None,
+        "reviews_total_override": (os.environ.get("REVIEWS_TOTAL_OVERRIDE") or "").strip() or None,
+        "reviews_delta_override": (os.environ.get("REVIEWS_DELTA_OVERRIDE") or "").strip() or None,
         "snapshot_db_path": (os.environ.get("SNAPSHOT_DB_PATH") or "").strip() or None,
     }

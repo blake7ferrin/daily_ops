@@ -86,16 +86,41 @@ def main() -> None:
             print(f"Plaid: {e}", file=sys.stderr)
             sys.exit(1)
 
+    def _parse_nonnegative_int(value: str | None, label: str) -> int | None:
+        if value is None or not value.strip():
+            return None
+        try:
+            parsed = int(value)
+        except ValueError:
+            raise SystemExit(f"Invalid {label}; expected a non-negative integer")
+        if parsed < 0:
+            raise SystemExit(f"Invalid {label}; expected a non-negative integer")
+        return parsed
+
     gbp_total_reviews = None
     gbp_avg_rating = None
     gbp_yesterday_total = None
+    reviews_total_override = _parse_nonnegative_int(
+        cfg.get("reviews_total_override"),
+        "REVIEWS_TOTAL_OVERRIDE",
+    )
+    reviews_delta_override = _parse_nonnegative_int(
+        cfg.get("reviews_delta_override"),
+        "REVIEWS_DELTA_OVERRIDE",
+    )
     places_enabled = cfg.get("places_api_key") and (
         cfg.get("places_place_id")
         or cfg.get("places_cid")
         or cfg.get("places_maps_url")
         or cfg.get("business_name")
     )
-    if places_enabled:
+    if reviews_total_override is not None:
+        gbp_total_reviews = reviews_total_override
+        prev = get_snapshot(cfg.get("snapshot_db_path"), yesterday)
+        gbp_yesterday_total = prev["gbp_total_reviews"] if prev else None
+        if reviews_delta_override is not None:
+            gbp_yesterday_total = max(0, gbp_total_reviews - reviews_delta_override)
+    elif places_enabled:
         try:
             gbp_total_reviews, gbp_avg_rating = places_fetch_reviews_summary(
                 cfg["places_api_key"],
@@ -109,6 +134,8 @@ def main() -> None:
             sys.exit(1)
         prev = get_snapshot(cfg.get("snapshot_db_path"), yesterday)
         gbp_yesterday_total = prev["gbp_total_reviews"] if prev else None
+        if reviews_delta_override is not None and gbp_total_reviews is not None:
+            gbp_yesterday_total = max(0, gbp_total_reviews - reviews_delta_override)
 
     m = compute_metrics(
         jobs_walked,

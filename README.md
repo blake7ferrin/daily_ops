@@ -33,8 +33,11 @@ Daily job that pulls Housecall Pro and optionally Google reviews (via Places API
 | `PLACES_CID` | Optional: Maps CID (from `https://maps.google.com/?cid=...`) |
 | `PLACES_MAPS_URL` | Optional: Google Maps share URL (we'll extract cid/ftid) |
 | `BUSINESS_NAME` | Fallback: business name text search (least reliable) |
+| `REVIEWS_TOTAL_OVERRIDE` | Optional: override total review count (integer) |
+| `REVIEWS_DELTA_OVERRIDE` | Optional: override new reviews since yesterday (integer) |
 
 Places lookup precedence is `PLACES_PLACE_ID` → `PLACES_CID` → `PLACES_MAPS_URL` → `BUSINESS_NAME`.
+If `REVIEWS_TOTAL_OVERRIDE` is set, it skips the Places lookup and uses the override value.
 | **Plaid (AMEX spend)** | Omit all to skip; AMEX spend and Net will show N/A |
 | `PLAID_CLIENT_ID` | Plaid client ID |
 | `PLAID_SECRET` | Plaid secret |
