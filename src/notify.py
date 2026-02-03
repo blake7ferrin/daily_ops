@@ -8,38 +8,34 @@ def _fmt_money(cents: int | None) -> str:
     return f"${cents / 100:,.2f}"
 
 
-def format_message(day: str, m: dict) -> str:
+def format_message(day: str, m: dict, business_name: str | None = None) -> str:
     """
     Build plain text message:
-    Daily Ops Summary (YYYY-MM-DD)
-    Jobs run, Jobs sold, Jobs invoiced, Collected, AMEX spend, Net
-    Google Reviews: Total: X (Avg: Y.Y), New since yesterday: +N
+    Business Name (or Daily Ops Summary with date)
+    Reviews TOTAL/+N
+    Jobs walked, Jobs Sold, Invoiced, Collected, Spent
     """
-    lines = [
-        f"Daily Ops Summary ({day})",
-        "",
-        f"Jobs run: {m['jobs_run_count']}",
-        f"Jobs sold: {m['jobs_sold_count']}",
-        f"Jobs invoiced: {m['jobs_invoiced_count']}",
-        f"Collected: {_fmt_money(m['collected_cents'])}",
-        f"AMEX spend: {_fmt_money(m.get('amex_spend_cents'))}",
-        f"Net: {_fmt_money(m.get('net_cents'))}",
-        "",
-    ]
+    header = business_name.strip() if business_name and business_name.strip() else f"Daily Ops Summary ({day})"
+    lines = [header]
     if m.get("gbp_total_reviews") is not None:
-        lines.append("Google Reviews:")
-        avg = m.get("gbp_avg_rating")
-        if avg is not None:
-            lines.append(f"Total: {m['gbp_total_reviews']} (Avg: {avg:.1f})")
-        else:
-            lines.append(f"Total: {m['gbp_total_reviews']}")
+        total = m["gbp_total_reviews"]
         new = m.get("gbp_new_reviews")
-        if new is not None:
-            lines.append(f"New since yesterday: +{new}")
+        if new is None:
+            reviews_line = f"Reviews {total}/N/A"
         else:
-            lines.append("New since yesterday: N/A")
+            reviews_line = f"Reviews {total}/+{new}"
     else:
-        lines.append("Google Reviews: N/A")
+        reviews_line = "Reviews N/A"
+    lines.extend(
+        [
+            reviews_line,
+            f"Jobs walked - {m['jobs_walked_count']}",
+            f"Jobs Sold - {m['jobs_sold_count']}",
+            f"Invoiced - {m['jobs_invoiced_count']}",
+            f"Collected - {_fmt_money(m['collected_cents'])}",
+            f"Spent - {_fmt_money(m.get('amex_spend_cents'))}",
+        ]
+    )
     body = "\n".join(lines)
     if len(body) > 4096:
         body = body[:4093] + "..."

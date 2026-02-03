@@ -13,10 +13,11 @@ def _payment_amount_cents(p: dict) -> int:
 
 
 def compute_metrics(
-    completed_jobs: list,
-    won_estimates: list,
-    invoices_created: list,
+    walked_jobs: list,
+    converted_estimates: list,
+    invoices_sent: list,
     payments_received: list,
+    booked_jobs: list,
     plaid_transactions: list[dict] | None,
     amex_account_id: str | None,
     gbp_total_reviews: int | None,
@@ -25,15 +26,29 @@ def compute_metrics(
 ) -> dict[str, Any]:
     """
     Return a single dict with:
-    jobs_run_count, jobs_sold_count, jobs_invoiced_count,
+    jobs_walked_count, jobs_sold_count, jobs_invoiced_count,
     collected_cents, amex_spend_cents, net_cents,
     gbp_total_reviews, gbp_new_reviews, gbp_avg_rating.
     amex_spend_cents and net_cents are None when Plaid is not used.
     gbp_* are None when Google Reviews (GBP) is not used.
     """
-    jobs_run_count = len(completed_jobs)
-    jobs_sold_count = len(won_estimates)
-    jobs_invoiced_count = len(invoices_created)
+    jobs_walked_count = len(walked_jobs)
+    jobs_invoiced_count = len(invoices_sent)
+
+    sold_estimate_ids = {e.get("id") for e in converted_estimates if e.get("id")}
+    booked_jobs_by_id = {j.get("id"): j for j in booked_jobs if j.get("id")}
+    invoiced_job_ids = {i.get("job_id") for i in invoices_sent if i.get("job_id")}
+    booked_and_invoiced_ids = set(booked_jobs_by_id.keys()) & invoiced_job_ids
+
+    extra_sold_jobs = 0
+    for job_id in booked_and_invoiced_ids:
+        job = booked_jobs_by_id.get(job_id, {})
+        original_estimate_id = job.get("original_estimate_id")
+        if original_estimate_id and original_estimate_id in sold_estimate_ids:
+            continue
+        extra_sold_jobs += 1
+
+    jobs_sold_count = len(converted_estimates) + extra_sold_jobs
 
     collected_cents = sum(_payment_amount_cents(p) for p in payments_received)
     # Exclude negative (refunds) if not already filtered by client
@@ -68,7 +83,7 @@ def compute_metrics(
         gbp_new_reviews = None
 
     return {
-        "jobs_run_count": jobs_run_count,
+        "jobs_walked_count": jobs_walked_count,
         "jobs_sold_count": jobs_sold_count,
         "jobs_invoiced_count": jobs_invoiced_count,
         "collected_cents": collected_cents,

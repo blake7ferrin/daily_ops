@@ -27,9 +27,14 @@ Daily job that pulls Housecall Pro and optionally Google reviews (via Places API
 
 | Variable | Description |
 | ---------- | ------------- |
-| **Google reviews (Places API)** | Omit either to skip; Google Reviews will show N/A |
+| **Google reviews (Places API)** | Omit all to skip; Google Reviews will show N/A |
 | `PLACES_API_KEY` | Google Maps Platform API key (Places API enabled) |
-| `BUSINESS_NAME` | Your business name as it appears on Google (used to find place and get rating/review count) |
+| `PLACES_PLACE_ID` | Optional: Place ID (ChIJ...) to pin the listing |
+| `PLACES_CID` | Optional: Maps CID (from `https://maps.google.com/?cid=...`) |
+| `PLACES_MAPS_URL` | Optional: Google Maps share URL (we'll extract cid/ftid) |
+| `BUSINESS_NAME` | Fallback: business name text search (least reliable) |
+
+Places lookup precedence is `PLACES_PLACE_ID` → `PLACES_CID` → `PLACES_MAPS_URL` → `BUSINESS_NAME`.
 | **Plaid (AMEX spend)** | Omit all to skip; AMEX spend and Net will show N/A |
 | `PLAID_CLIENT_ID` | Plaid client ID |
 | `PLAID_SECRET` | Plaid secret |
@@ -54,6 +59,8 @@ Or double‑click **run_daily_ops.bat** (after `doppler setup` in that folder).
 
 ## Scheduling
 
+The job uses `TIMEZONE` to determine "today", so schedule it for 7:00 PM local time.
+
 ### Windows (Task Scheduler)
 
 A task **Daily Ops** is set to run at **7:00 PM local time** every day. It runs `run_daily_ops.bat`, which runs the job with Doppler. Ensure Doppler CLI is installed and you’ve run `doppler login` and `doppler setup` in `daily_ops` so the task can inject secrets.
@@ -62,10 +69,10 @@ To change the time or view the task: **Task Scheduler** → Task Scheduler Libra
 
 ### Linux / cron
 
-Example: run daily at 8:05 PM Arizona time:
+Example: run daily at 7:00 PM Arizona time:
 
 ```bash
-5 20 * * * TZ=America/Phoenix cd /path/to/daily_ops && doppler run -- python -m src.main >> /var/log/daily_ops.log 2>&1
+0 19 * * * TZ=America/Phoenix cd /path/to/daily_ops && doppler run -- python3 -m src.main >> /var/log/daily_ops.log 2>&1
 ```
 
 For unattended cron, use a [Doppler service token](https://docs.doppler.com/docs/service-tokens) and set `DOPPLER_TOKEN` in the environment.

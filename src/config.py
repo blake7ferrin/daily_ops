@@ -40,5 +40,8 @@ def load_config() -> dict:
         "tz": ZoneInfo(_get("TIMEZONE")),
         "places_api_key": (os.environ.get("PLACES_API_KEY") or "").strip() or None,
         "business_name": (os.environ.get("BUSINESS_NAME") or "").strip() or None,
+        "places_place_id": (os.environ.get("PLACES_PLACE_ID") or "").strip() or None,
+        "places_cid": (os.environ.get("PLACES_CID") or "").strip() or None,
+        "places_maps_url": (os.environ.get("PLACES_MAPS_URL") or "").strip() or None,
         "snapshot_db_path": (os.environ.get("SNAPSHOT_DB_PATH") or "").strip() or None,
     }
